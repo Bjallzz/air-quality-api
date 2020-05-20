@@ -4,12 +4,14 @@
   "description": "Recrutation task",
   "main": "index.js",
   "scripts": {
-    "test": "test"
+    "test": "test",
+    "start": "node ./src/index.js"
   },
   "author": "Maciek Sputowski",
   "license": "ISC",
   "devDependencies": {
     "express": "^4.17.1",
-    "mongodb": "^3.5.7"
+    "mongodb": "^3.5.7",
+    "node-fetch": "^2.6.0"
   }
 }
