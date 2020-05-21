@@ -1,12 +1,14 @@
-const express = require("express");
+import express from "express";
+import router from "./routes/stations.js";
+import openConnection from "../src/database.js";
 const app = express();
 const port = 3000;
-let stationsRoute = require('./routes/stations')
 
 app.get("/", (req, res) => res.send("Hello World!"));
 
-app.use(stationsRoute);
+app.use(router);
 
-app.listen(port, () =>
-	console.log(`Example app listening at http://localhost:${port}`)
-);
+app.listen(port, () => {
+	openConnection();
+	console.log(`Weather API listening at http://localhost:${port}`);
+});

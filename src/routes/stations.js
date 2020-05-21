@@ -1,6 +1,6 @@
-let express = require("express");
-const fetch = require("node-fetch");
-const processing = require("../processing");
+import express from "express";
+import fetch from 'node-fetch';
+import {fetchSensorsValue, fetchStation} from '../processing.js';
 let router = express.Router();
 
 router.get("/station", (req, res) => {
@@ -34,7 +34,7 @@ router.get("/station/:id", async (req, res, next) => {
 			res.status(404).send();
         });*/
 	try {
-		res.send(await processing.fetchStation(req.params.id));
+		res.send(await fetchStation(req.params.id));
 	} catch (error) {
 		next(error);
 	}
@@ -43,14 +43,14 @@ router.get("/station/:id", async (req, res, next) => {
 router.get("/station/:id/data", async (req, res, next) => {
 	try {
 		let sensors = [];
-		let station = await processing.fetchStation(req.params.id);
+		let station = await fetchStation(req.params.id);
 		station.forEach((sensor) => {
 			sensors.push(sensor.id);
-		});	
-		res.json(await processing.fetchSensorsValue(sensors));
+		});
+		res.json(await fetchSensorsValue(sensors));
 	} catch (error) {
 		next(error);
 	}
 });
 
-module.exports = router;
+export default router;
