@@ -45,4 +45,17 @@ const fetchSensorsValue = async (sensors) => {
 	return measurements;
 };
 
-export { fetchSensorsValue, fetchStation };
+const fetchStationMeasurements = async (id) => {
+	let sensors = [];
+	let station = await fetchStation(id);
+	station.forEach((sensor) => {
+		sensors.push(sensor.id);
+	});
+	let measurements = await fetchSensorsValue(sensors);
+	for(let measurement of measurements) {
+		measurement.stationId = id;
+	}
+	return measurements;
+}
+
+export { fetchSensorsValue, fetchStation, fetchStationMeasurements };

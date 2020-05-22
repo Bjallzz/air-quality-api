@@ -1,6 +1,6 @@
 import express from "express";
 import router from "./routes/stations.js";
-import openConnection from "../src/database.js";
+import { openConnection, storeMeasurements } from "../src/database.js";
 const app = express();
 const port = 3000;
 

@@ -1,6 +1,10 @@
 import express from "express";
-import fetch from 'node-fetch';
-import {fetchSensorsValue, fetchStation} from '../processing.js';
+import fetch from "node-fetch";
+import { fetchStation, fetchStationMeasurements } from "../processing.js";
+import {
+	findAverageMeasurementForDay,
+	findAverageMeasurementFromTo,
+} from "../database.js";
 let router = express.Router();
 
 router.get("/station", (req, res) => {
@@ -42,12 +46,24 @@ router.get("/station/:id", async (req, res, next) => {
 
 router.get("/station/:id/data", async (req, res, next) => {
 	try {
-		let sensors = [];
-		let station = await fetchStation(req.params.id);
-		station.forEach((sensor) => {
-			sensors.push(sensor.id);
-		});
-		res.json(await fetchSensorsValue(sensors));
+		if (req.query.from && req.query.to) {
+			res.json(
+				findAverageMeasurementFromTo(
+					req.params.id,
+					req.query.from,
+					req.query.to
+				)
+			);
+		} else if (req.query.day) {
+			let average = await findAverageMeasurementForDay(
+				req.params.id,
+				req.query.day
+			);
+			console.log(average);
+			res.json(average);
+		} else {
+			res.json(await fetchStationMeasurements(req.params.id));
+		}
 	} catch (error) {
 		next(error);
 	}
