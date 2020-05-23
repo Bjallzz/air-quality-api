@@ -52,35 +52,61 @@ const findAverageMeasurementForDay = async (stationId, day) => {
 	day = new Date(day);
 	let nextDay = new Date();
 	nextDay.setDate(day.getDate() + 1);
-	nextDay.setHours(2, 0, 0, 0);
+	nextDay.setUTCHours(0, 0, 0, 0);
 	return db
 		.collection(collectionName)
 		.aggregate([
 			{ $match: { stationId: +stationId } },
-			//{ $project: {sensors: 1, stationId: 1}},
-			//{ $unwind: "$sensors"}
-			//{ $match: { sensors: { $gte: day, $lt: nextDay } } },
-			//{ $group: { _id: null, average: { $avg: "$value" } } },
-			//{ $project: { date: { $literal: day }, _id: 0, average: 1 } },
+			{ $unwind: "$sensors" },
+			{ $unwind: "$sensors.measurements" },
+			{ $match: { "sensors.measurements.date": { $gte: day, $lt: nextDay } } },
+			{
+				$group: {
+					_id: "$sensors.substance",
+					average: { $avg: "$sensors.measurements.value" },
+				},
+			},
+			{
+				$project: {
+					stationId: { $literal: stationId },
+					date: { $literal: day },
+					_id: 1,
+					average: { $round: ["$average", 2] },
+				},
+			},
 		])
 		.toArray();
 };
 
 const findAverageMeasurementFromTo = async (stationId, from, to) => {
-	db.collection(collectionName)
-		.aggregate([
-			{ $match: { date: { $gte: from, $lt: to } } },
-			{ $group: { _id: null, average: { $avg: "$value" } } },
-		])
-		.toArray()
-		.then((result) => {
-			return result;
-		})
-		.catch((err) =>
-			console.log(
-				`Error while trying to find average for station: ${stationId}\n From: ${from}\nTo: ${to}`
-			)
-		);
+	from = new Date(from);
+	to = new Date(to);
+	to.setDate(to.getDate() + 1);
+	to.setUTCHours(0, 0, 0, 0);
+	return db
+	.collection(collectionName)
+	.aggregate([
+		{ $match: { stationId: +stationId } },
+		{ $unwind: "$sensors" },
+		{ $unwind: "$sensors.measurements" },
+		{ $match: { "sensors.measurements.date": { $gte: from, $lt: to } } },
+		{
+			$group: {
+				_id: "$sensors.substance",
+				average: { $avg: "$sensors.measurements.value" },
+			},
+		},
+		{
+			$project: {
+				stationId: { $literal: stationId },
+				from: { $literal: from },
+				to: { $literal: to },
+				_id: 1,
+				average: { $round: ["$average", 2] },
+			},
+		},
+	])
+	.toArray();
 };
 
 export {

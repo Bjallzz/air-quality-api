@@ -1,8 +1,23 @@
-import fetch from 'node-fetch';
+import fetch from "node-fetch";
 
 const fetchStation = async (id) => {
 	let response = await fetch(
 		`http://api.gios.gov.pl/pjp-api/rest/station/sensors/${id}`
+	);
+	let data = await response.json();
+	if (response.ok) {
+		return data;
+	} else {
+		let error = new Error();
+		error.status = data.status;
+		error.message = data.statusText;
+		throw error;
+	}
+};
+
+const fetchAllStations = async () => {
+	let response = await fetch(
+		"http://api.gios.gov.pl/pjp-api/rest/station/findAll"
 	);
 	let data = await response.json();
 	if (response.ok) {
@@ -52,10 +67,10 @@ const fetchStationMeasurements = async (id) => {
 		sensors.push(sensor.id);
 	});
 	let measurements = await fetchSensorsValue(sensors);
-	for(let measurement of measurements) {
+	for (let measurement of measurements) {
 		measurement.stationId = id;
 	}
 	return measurements;
-}
+};
 
-export { fetchSensorsValue, fetchStation, fetchStationMeasurements };
+export { fetchSensorsValue, fetchStation, fetchStationMeasurements, fetchAllStations };
