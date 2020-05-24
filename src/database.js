@@ -20,25 +20,20 @@ const openConnection = (callback) => {
 };
 
 const setupDatabase = async () => {
+	console.log("Database setup started");
 	let stations = await fetchAllStations();
 	let query = [];
 	for (let station of stations) {
-		/*db.collection(collectionName).updateOne(
-			{ stationId: station.id },
-			{ $set: { stationId: station.id, sensors: [] } },
-			{ upsert: true }
-		);*/
-
 		query.push({
 			updateOne: {
 				filter: { stationId: station.id },
-				update: { $set: { stationId: station.id, sensors: [] } },
+				update: { $setOnInsert: { stationId: station.id, sensors: [] } },
 				upsert: true,
 			},
 		});
 	}
 
-	db.collection(collectionName).bulkWrite(query);
+	let result = await db.collection(collectionName).bulkWrite(query);
 
 	query = [];
 
@@ -53,40 +48,28 @@ const setupDatabase = async () => {
 		.toArray();
 
 	for (let station of databaseStations) {
-
 		let sensors = await fetchStationMeasurements(station.stationId);
 
 		let databaseSensors = station.sensors;
-		databaseSensors.forEach((databaseSensor) => {
-			databaseSensor = databaseSensor.key;
-		});
+		databaseSensors = databaseSensors.map(
+			(databaseSensor) => databaseSensor.key
+		);
 
 		for (let sensor of sensors) {
 			if (!databaseSensors.includes(sensor.key)) {
-				/*db.collection(collectionName).updateOne(
-					{ stationId: station.id },
-					{ $push: { sensors: { key: sensor.key, values: [] } } }
-				);*/
+				query.push({
+					updateOne: {
+						filter: { stationId: station.stationId },
+						update: { $push: { sensors: { key: sensor.key, values: [] } } },
+					},
+				});
 			}
-
-			query.push({
-				updateOne: {
-					filter: { stationId: station.stationId },
-					update: { $push: { sensors: { key: sensor.key, values: [] } } },
-				},
-			});
 
 			let newMeasurements = [];
 
 			for (let measurement of sensor.values) {
 				if (!databaseSensors.some((entry) => entry.date === measurement.date)) {
-					/*db.collection(collectionName).updateOne(
-						{
-							$and: [{ stationId: station.id }, { "sensors.key": sensor.key }],
-						},
-						{ $push: { "sensors.$.values": measurement } }
-					);*/
-					console.log(measurement);
+					measurement.date = new Date(measurement.date);
 					newMeasurements.push(measurement);
 				}
 			}
@@ -94,14 +77,61 @@ const setupDatabase = async () => {
 			query.push({
 				updateOne: {
 					filter: {
-						$and: [{ stationId: station.stationId }, { "sensors.key": sensor.key }],
+						$and: [
+							{ stationId: station.stationId },
+							{ "sensors.key": sensor.key },
+						],
 					},
 					update: { $push: { "sensors.$.values": { $each: newMeasurements } } },
 				},
 			});
 		}
+		process.stdout.write(
+			"Processing stations: " +
+				"[" +
+				(databaseStations.indexOf(station) + 1) +
+				"/" +
+				databaseStations.length +
+				"]" +
+				"\r"
+		);
 	}
-	db.collection(collectionName).bulkWrite(query);
+	result = await db.collection(collectionName).bulkWrite(query);
+	console.log("\n");
+	console.log(result);
+	console.log("Database setup complete");
+};
+
+const updateDatabase = async () => {
+	console.log("Database update started");
+	let stations = await fetchAllStations();
+	let query = [];
+	for (let station of stations) {
+		let sensors = await fetchStationMeasurements(station.id);
+		for (let sensor of sensors) {
+			query.push({
+				updateOne: {
+					filter: {
+						$and: [{ stationId: station.id }, { "sensors.key": sensor.key }],
+					},
+					update: { $addToSet: { "sensors.$.values": sensor.values[0] } },
+				},
+			});
+		}
+		process.stdout.write(
+			"Updating stations: " +
+				"[" +
+				(stations.indexOf(station) + 1) +
+				"/" +
+				stations.length +
+				"]" +
+				"\r"
+		);
+	}
+	let result = await db.collection(collectionName).bulkWrite(query);
+	console.log("\n");
+	console.log(result);
+	console.log("Database update complete");
 };
 
 const storeMeasurements = (stationId, measurement) => {
@@ -128,9 +158,9 @@ const readLastMeasurement = (stationId, substanceName) => {
 		.then((result) => {
 			return result;
 		})
-		.catch((err) =>
+		.catch((error) =>
 			console.log(
-				`Error while trying to find document for station: ${stationId}, substance: ${substanceName}`
+				`Error while trying to find document for station: ${stationId}, substance: ${substanceName}\n${error}`
 			)
 		);
 };
@@ -146,7 +176,6 @@ const findAverageMeasurementForDay = async (stationId, day) => {
 			{ $match: { stationId: +stationId } },
 			{ $unwind: "$sensors" },
 			{ $unwind: "$sensors.values" },
-			{ $set: { "sensors.values.date": { $toDate: "$sensors.values.date" } } },
 			{ $match: { "sensors.values.date": { $gte: day, $lt: nextDay } } },
 			{
 				$group: {
@@ -169,8 +198,6 @@ const findAverageMeasurementForDay = async (stationId, day) => {
 const findAverageMeasurementFromTo = async (stationId, from, to) => {
 	from = new Date(from);
 	to = new Date(to);
-	to.setDate(to.getDate() + 1);
-	to.setUTCHours(0, 0, 0, 0);
 	return db
 		.collection(collectionName)
 		.aggregate([
@@ -204,4 +231,5 @@ export {
 	findAverageMeasurementForDay,
 	findAverageMeasurementFromTo,
 	setupDatabase,
+	updateDatabase,
 };

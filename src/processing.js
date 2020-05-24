@@ -4,7 +4,7 @@ const fetchRetry = async (url, n) => {
 	try {
         return await fetch(url)
     } catch(error) {
-		console.log("Fetch failed: Retrying fetch for url " + url + "\nTries remaining: " + n - 1);
+		//console.log("Fetch failed: Retrying fetch for url " + url + "\nTries remaining: " + n - 1);
         if (n === 1) throw error;
         return await fetchRetry(url, n - 1);
     }
@@ -60,14 +60,14 @@ const fetchAllStations = async () => {
 const fetchSensorsValue = async (sensors) => {
 	try {
 		let measurements = [];
-		measurements = Promise.all(
+		measurements = await Promise.all(
 			sensors.map(async (id) => {
 				return fetchSensor(id);
 			})
 		);
 		return measurements;
 	} catch (error) {
-		console.log(error.status + error.statusText);
+		//console.log(error.status + error.statusText);
 	}
 };
 
