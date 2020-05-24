@@ -1,10 +1,11 @@
 import mongodb from "mongodb";
+import { fetchAllStations, fetchStationMeasurements } from "./processing.js";
 const url = "mongodb://localhost:27017";
 const databaseName = "weather-api-database";
 const collectionName = "stations";
 let db;
 
-const openConnection = () => {
+const openConnection = (callback) => {
 	mongodb.MongoClient.connect(
 		url,
 		{ useNewUrlParser: true, useUnifiedTopology: true },
@@ -13,19 +14,105 @@ const openConnection = () => {
 			db = client.db(databaseName);
 			console.log(`Connected MongoDB: ${url}`);
 			console.log(`Database: ${databaseName}`);
+			callback();
 		}
 	);
+};
+
+const setupDatabase = async () => {
+	let stations = await fetchAllStations();
+	let query = [];
+	for (let station of stations) {
+		/*db.collection(collectionName).updateOne(
+			{ stationId: station.id },
+			{ $set: { stationId: station.id, sensors: [] } },
+			{ upsert: true }
+		);*/
+
+		query.push({
+			updateOne: {
+				filter: { stationId: station.id },
+				update: { $set: { stationId: station.id, sensors: [] } },
+				upsert: true,
+			},
+		});
+	}
+
+	db.collection(collectionName).bulkWrite(query);
+
+	query = [];
+
+	let databaseStations = await db
+		.collection(collectionName)
+		.find(
+			{},
+			{
+				sensors: 1,
+			}
+		)
+		.toArray();
+
+	for (let station of databaseStations) {
+
+		let sensors = await fetchStationMeasurements(station.stationId);
+
+		let databaseSensors = station.sensors;
+		databaseSensors.forEach((databaseSensor) => {
+			databaseSensor = databaseSensor.key;
+		});
+
+		for (let sensor of sensors) {
+			if (!databaseSensors.includes(sensor.key)) {
+				/*db.collection(collectionName).updateOne(
+					{ stationId: station.id },
+					{ $push: { sensors: { key: sensor.key, values: [] } } }
+				);*/
+			}
+
+			query.push({
+				updateOne: {
+					filter: { stationId: station.stationId },
+					update: { $push: { sensors: { key: sensor.key, values: [] } } },
+				},
+			});
+
+			let newMeasurements = [];
+
+			for (let measurement of sensor.values) {
+				if (!databaseSensors.some((entry) => entry.date === measurement.date)) {
+					/*db.collection(collectionName).updateOne(
+						{
+							$and: [{ stationId: station.id }, { "sensors.key": sensor.key }],
+						},
+						{ $push: { "sensors.$.values": measurement } }
+					);*/
+					console.log(measurement);
+					newMeasurements.push(measurement);
+				}
+			}
+
+			query.push({
+				updateOne: {
+					filter: {
+						$and: [{ stationId: station.stationId }, { "sensors.key": sensor.key }],
+					},
+					update: { $push: { "sensors.$.values": { $each: newMeasurements } } },
+				},
+			});
+		}
+	}
+	db.collection(collectionName).bulkWrite(query);
 };
 
 const storeMeasurements = (stationId, measurement) => {
 	db.collection(collectionName).updateOne(
 		{
 			stationId: stationId,
-			sensors: { $elemMatch: { substance: measurement.substance } },
+			sensors: { $elemMatch: { key: measurement.substance } },
 		},
 		{
 			$push: {
-				"sensors.$.measurements": {
+				"sensors.$.values": {
 					date: measurement.date,
 					value: measurement.value,
 				},
@@ -58,12 +145,13 @@ const findAverageMeasurementForDay = async (stationId, day) => {
 		.aggregate([
 			{ $match: { stationId: +stationId } },
 			{ $unwind: "$sensors" },
-			{ $unwind: "$sensors.measurements" },
-			{ $match: { "sensors.measurements.date": { $gte: day, $lt: nextDay } } },
+			{ $unwind: "$sensors.values" },
+			{ $set: { "sensors.values.date": { $toDate: "$sensors.values.date" } } },
+			{ $match: { "sensors.values.date": { $gte: day, $lt: nextDay } } },
 			{
 				$group: {
-					_id: "$sensors.substance",
-					average: { $avg: "$sensors.measurements.value" },
+					_id: "$sensors.key",
+					average: { $avg: "$sensors.values.value" },
 				},
 			},
 			{
@@ -84,29 +172,29 @@ const findAverageMeasurementFromTo = async (stationId, from, to) => {
 	to.setDate(to.getDate() + 1);
 	to.setUTCHours(0, 0, 0, 0);
 	return db
-	.collection(collectionName)
-	.aggregate([
-		{ $match: { stationId: +stationId } },
-		{ $unwind: "$sensors" },
-		{ $unwind: "$sensors.measurements" },
-		{ $match: { "sensors.measurements.date": { $gte: from, $lt: to } } },
-		{
-			$group: {
-				_id: "$sensors.substance",
-				average: { $avg: "$sensors.measurements.value" },
+		.collection(collectionName)
+		.aggregate([
+			{ $match: { stationId: +stationId } },
+			{ $unwind: "$sensors" },
+			{ $unwind: "$sensors.values" },
+			{ $match: { "sensors.values.date": { $gte: from, $lt: to } } },
+			{
+				$group: {
+					_id: "$sensors.key",
+					average: { $avg: "$sensors.values.value" },
+				},
 			},
-		},
-		{
-			$project: {
-				stationId: { $literal: stationId },
-				from: { $literal: from },
-				to: { $literal: to },
-				_id: 1,
-				average: { $round: ["$average", 2] },
+			{
+				$project: {
+					stationId: { $literal: stationId },
+					from: { $literal: from },
+					to: { $literal: to },
+					_id: 1,
+					average: { $round: ["$average", 2] },
+				},
 			},
-		},
-	])
-	.toArray();
+		])
+		.toArray();
 };
 
 export {
@@ -115,4 +203,5 @@ export {
 	readLastMeasurement,
 	findAverageMeasurementForDay,
 	findAverageMeasurementFromTo,
+	setupDatabase,
 };

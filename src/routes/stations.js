@@ -34,7 +34,14 @@ router.get("/station/:id/data", async (req, res, next) => {
 				await findAverageMeasurementForDay(req.params.id, req.query.day)
 			);
 		} else {
-			res.json(await fetchStationMeasurements(req.params.id));
+			let response = await fetchStationMeasurements(req.params.id);
+			/*for(let sensor of response) {
+				let latestValue = sensor.values[0];
+				delete sensor.values;
+				sensor.date = latestValue.date;
+				sensor.value = latestValue.value;
+			}*/
+			res.json(response);
 		}
 	} catch (error) {
 		next(error);
