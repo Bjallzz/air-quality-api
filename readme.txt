@@ -7,7 +7,8 @@ Prerequisites:
 Instructions:
 -Type "npm install" in the terminal
 -Type "npm run setup-database"
--Open second terminal and type "npm run start"
+-Open second terminal and type "npm run test"
+-Type "npm run start" in the second terminal
 
 Notes:
 -After running "npm run start" the application may take a long time to start, due to fetching a lot of data to fill the database with initial values
