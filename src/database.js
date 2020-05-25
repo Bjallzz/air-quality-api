@@ -1,5 +1,9 @@
 import mongodb from "mongodb";
-import { fetchAllStations, fetchStationMeasurements } from "./processing.js";
+import {
+	fetchAllStations,
+	fetchStationMeasurements,
+	compensateTimeDifference,
+} from "./processing.js";
 const url = "mongodb://localhost:27017";
 const databaseName = "weather-api-database";
 const collectionName = "stations";
@@ -20,7 +24,7 @@ const openConnection = (callback) => {
 };
 
 const setupDatabase = async () => {
-	console.log("Database setup started");
+	console.log("Database setup started at " + new Date());
 
 	let stations = await fetchAllStations();
 	let query = [];
@@ -56,25 +60,50 @@ const setupDatabase = async () => {
 	result = await db.collection(collectionName).bulkWrite(query);
 	console.log("\n");
 	console.log(result);
-	console.log("Database setup complete");
+	console.log("Database setup complete at " + new Date());
 };
 
 const updateDatabase = async () => {
-	console.log("Database update started");
+	console.log("Database update started at " + new Date());
 	let stations = await fetchAllStations();
 	let query = [];
 	for (let station of stations) {
 		let sensors = await fetchStationMeasurements(station.id);
 		if (sensors.length !== 0) {
 			for (let sensor of sensors) {
-				query.push({
-					updateOne: {
-						filter: {
-							$and: [{ stationId: station.id }, { "sensors.key": sensor.key }],
+				if (sensor.values.length !== 0) {
+					sensor.values[0].date = compensateTimeDifference(
+						sensor.values[0].date
+					);
+					query.push({
+						updateOne: {
+							filter: {
+								$and: [
+									{ stationId: station.id },
+									{ "sensors.key": sensor.key },
+								],
+							},
+							update: {
+								$pull: {
+									"sensors.$.values": {
+										date: sensor.values[0].date,
+									},
+								},
+							},
 						},
-						update: { $addToSet: { "sensors.$.values": sensor.values[0] } },
-					},
-				});
+					});
+					query.push({
+						updateOne: {
+							filter: {
+								$and: [
+									{ stationId: station.id },
+									{ "sensors.key": sensor.key },
+								],
+							},
+							update: { $push: { "sensors.$.values": sensor.values[0] } },
+						},
+					});
+				}
 			}
 		}
 		logProgress(stations.indexOf(station) + 1, stations.length);
@@ -82,11 +111,12 @@ const updateDatabase = async () => {
 	let result = await db.collection(collectionName).bulkWrite(query);
 	console.log("\n");
 	console.log(result);
-	console.log("Database update complete");
+	console.log("Database update complete at " + new Date());
 };
 
 const findAverageMeasurementForDay = async (stationId, day, database) => {
-	day = new Date(day);
+	day = compensateTimeDifference(day);
+	day.setUTCHours(0, 0, 0, 0);
 	let nextDay = new Date();
 	nextDay.setUTCHours(0, 0, 0, 0);
 	nextDay.setDate(day.getDate() + 1);
@@ -117,8 +147,10 @@ const findAverageMeasurementForDay = async (stationId, day, database) => {
 };
 
 const findAverageMeasurementFromTo = async (stationId, from, to, database) => {
-	from = new Date(from);
-	to = new Date(to);
+	from = compensateTimeDifference(from);
+	from.setUTCHours(0, 0, 0, 0);
+	to = compensateTimeDifference(to);
+	to.setUTCHours(0, 0, 0, 0);
 	return database
 		.collection(collectionName)
 		.aggregate([
@@ -180,9 +212,7 @@ const constructSensorCreationQuery = (sensor, station, databaseSensors) => {
 	}
 
 	sensor.values.forEach((measurement) => {
-		let date = new Date(measurement.date);
-		date.setTime(date.getTime() - new Date().getTimezoneOffset()*60*1000);
-		measurement.date = date;
+		measurement.date = compensateTimeDifference(measurement.date);
 	});
 
 	query.push({

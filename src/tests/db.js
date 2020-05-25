@@ -106,7 +106,7 @@ describe("Database", () => {
 		let result = await findAverageMeasurementFromTo(
 			1337,
 			"2020-05-22",
-			"2020-05-24",
+			"2020-05-23",
 			db
 		);
 
@@ -127,8 +127,8 @@ describe("Database", () => {
 			.should.equal(new Date("2020-05-22").toDateString());
 		result[0].to
 			.toDateString()
-			.should.equal(new Date("2020-05-24").toDateString());
-		result[0].average.should.equal(9.65);
+			.should.equal(new Date("2020-05-23").toDateString());
+		result[0].average.should.equal(12.7);
 
 		result[1]._id.should.equal("NO2");
 		result[1].stationId.should.equal(1337);
@@ -137,8 +137,8 @@ describe("Database", () => {
 			.should.equal(new Date("2020-05-22").toDateString());
 		result[1].to
 			.toDateString()
-			.should.equal(new Date("2020-05-24").toDateString());
-		result[1].average.should.equal(18.83);
+			.should.equal(new Date("2020-05-23").toDateString());
+		result[1].average.should.equal(17.65);
     });
     it("should get an empty array for an incorrect time period", async function () {
 		let result = await findAverageMeasurementFromTo(

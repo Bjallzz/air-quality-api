@@ -1,15 +1,31 @@
 import express from "express";
-import { fetchStation, fetchStationMeasurements, fetchAllStations } from "../processing.js";
-import { findAverageMeasurementForDay, findAverageMeasurementFromTo, db } from "../database.js";
+import {
+	fetchStation,
+	fetchStationMeasurements,
+	fetchAllStations,
+} from "../processing.js";
+import {
+	findAverageMeasurementForDay,
+	findAverageMeasurementFromTo,
+	db,
+} from "../database.js";
 let router = express.Router();
 
-router.get('/', (req, res) => res.send('Air condition API'))
+router.get("/", (req, res) =>
+	res.send(`Air condition API<br><br>
+	Available routes:<br>
+	/station returns all stations<br>
+	/station/{id} returns station with a given id<br>
+	/station/{id}/data returns data for all sensors on station with given id<br>
+	/station/{id}/data?day={date in format YYYY-MM-DD} returns average data for all sensors on station with given id on a given day<br>
+	/station/{id}/data?from={date in format YYYY-MM-DD}&to={date in format YYYY-MM-DD} returns average data for all sensors on station with given id in specified time period`)
+);
 
-router.get("/station", async (req, res) => {
+router.get("/station", async (req, res, next) => {
 	try {
 		res.send(await fetchAllStations());
 	} catch (error) {
-		res.status(error.status).send(error.statusText);
+		next(error);
 	}
 });
 
@@ -17,7 +33,7 @@ router.get("/station/:id", async (req, res, next) => {
 	try {
 		res.send(await fetchStation(req.params.id));
 	} catch (error) {
-		res.status(error.status).send(error.statusText);
+		next(error);
 	}
 });
 
@@ -47,7 +63,7 @@ router.get("/station/:id/data", async (req, res, next) => {
 			res.json(response);
 		}
 	} catch (error) {
-		res.status(error.status).send(error.statusText);
+		next(error);
 	}
 });
 

@@ -9,6 +9,12 @@ chai.should();
 const app = express();
 const port = 4000;
 app.use(router);
+
+app.use((err, req, res, next) => {
+	if(err.status && err.message) res.status(err.status).send(err.message);
+	else res.status(500).send();
+});
+
 app.listen(port, async () => {
     console.log(`Air condition API listening at http://localhost:${port}`);
 });

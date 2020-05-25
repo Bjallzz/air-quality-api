@@ -85,9 +85,16 @@ const fetchStationMeasurements = async (id) => {
 	return measurements;
 };
 
+const compensateTimeDifference = (stringDate) => {
+	let date = new Date(stringDate);
+	date.setTime(date.getTime() - new Date().getTimezoneOffset()*60*1000);
+	return date;
+}
+
 export {
 	fetchSensorsValue,
 	fetchStation,
 	fetchStationMeasurements,
 	fetchAllStations,
+	compensateTimeDifference
 };
