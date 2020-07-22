@@ -1,78 +1,52 @@
 import fetch from "node-fetch";
 
-const fetchRetry = async (url, n) => {
+const fetchWithSetNumberOfRetries = async (url, numberOfRetries) => {
 	try {
 		return await fetch(url);
 	} catch (error) {
-		if (n === 1) throw error;
-		return await fetchRetry(url, n - 1);
+		if (numberOfRetries === 1) throw error;
+		return await fetchWithSetNumberOfRetries(url, numberOfRetries - 1);
 	}
 };
 
 const fetchSensor = async (id) => {
-	let response = await fetchRetry(
-		`http://api.gios.gov.pl/pjp-api/rest/data/getData/${id}`,
-		4
-	);
-	let data = await response.json();
+	let response = await fetchWithSetNumberOfRetries(`http://api.gios.gov.pl/pjp-api/rest/data/getData/${id}`, 4);
+	let sensorData = await response.json();
 	if (response.ok) {
-		let measurement = {};
-		measurement.values = [];
-		measurement.key = data.key;
-		for (let value of data.values) {
-			if (value.value !== null) {
-				measurement.values.push({ date: value.date, value: value.value });
-			}
-		}
-		return measurement;
+		return parseCorrectSensorMeasurements(sensorData);
 	} else {
-		let error = new Error();
-		error.status = data.status;
-		error.message = data.statusText;
-		throw error;
+		createAndThrowErrorBasedOnResponse(response);
 	}
 };
 
 const fetchStation = async (id) => {
-	let response = await fetchRetry(
-		`http://api.gios.gov.pl/pjp-api/rest/station/sensors/${id}`,
-		4
-	);
+	let response = await fetchWithSetNumberOfRetries(`http://api.gios.gov.pl/pjp-api/rest/station/sensors/${id}`, 4);
 	if (response.ok) {
-		let data = await response.json();
-		return data;
+		let stationData = await response.json();
+		return stationData;
 	} else {
-		let error = new Error();
-		error.status = response.status;
-		error.message = response.statusText;
-		throw error;
+		createAndThrowErrorBasedOnResponse(response);
 	}
 };
 
 const fetchAllStations = async () => {
-	let response = await fetchRetry(
-		"http://api.gios.gov.pl/pjp-api/rest/station/findAll",
-		4
-	);
-	let data = await response.json();
+	let response = await fetchWithSetNumberOfRetries("http://api.gios.gov.pl/pjp-api/rest/station/findAll", 4);
+	let allStationsData = await response.json();
 	if (response.ok) {
-		return data;
+		return allStationsData;
 	} else {
-		let error = new Error();
-		error.status = response.status;
-		error.message = response.statusText;
-		throw error;
+		createAndThrowErrorBasedOnResponse(response);
 	}
 };
 
-const fetchSensorsValue = async (sensors) => {
-	let measurements = [];
-	measurements = await Promise.all(
+const fetchSensorsMeasurements = async (sensors) => {
+	let sensorsValues = [];
+	sensorsValues = await Promise.all(
 		sensors.map(async (id) => {
 			return fetchSensor(id);
 		})
 	);
-	return measurements;
+	return sensorsValues;
 };
 
 const fetchStationMeasurements = async (id) => {
@@ -81,18 +55,37 @@ const fetchStationMeasurements = async (id) => {
 	station.forEach((sensor) => {
 		sensors.push(sensor.id);
 	});
-	let measurements = await fetchSensorsValue(sensors);
-	return measurements;
+	let sensorsMeasurements = await fetchSensorsMeasurements(sensors);
+	return sensorsMeasurements;
 };
 
-const compensateTimeDifference = (stringDate) => {
-	let date = new Date(stringDate);
-	date.setTime(date.getTime() - new Date().getTimezoneOffset()*60*1000);
-	return date;
+const compensateTimeDifference = (uncompensatedDate) => {
+	let correctDate = new Date(uncompensatedDate);
+	correctDate.setTime(date.getTime() - new Date().getTimezoneOffset() * 60 * 1000);
+	return correctDate;
+}
+
+const createAndThrowErrorBasedOnResponse = (response) => {
+	let error = new Error();
+	error.status = response.status;
+	error.message = response.statusText;
+	throw error;
+}
+
+const parseCorrectSensorMeasurements = (sensorData) => {
+	let sensorMeasurements = {};
+	sensorMeasurements.values = [];
+	sensorMeasurements.key = sensorData.key;
+	for (let value of sensorData.values) {
+		if (value.value !== null) {
+			sensorMeasurements.values.push({ date: value.date, value: value.value });
+		}
+	}
+	return sensorMeasurements;
 }
 
 export {
-	fetchSensorsValue,
+	fetchSensorsMeasurements,
 	fetchStation,
 	fetchStationMeasurements,
 	fetchAllStations,

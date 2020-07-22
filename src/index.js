@@ -1,10 +1,7 @@
 import express from "express";
 import router from "./routes/stations.js";
-import {
-	openConnection,
-	setupDatabase,
-	updateDatabase,
-} from "../src/database.js";
+import { openConnection, setupDatabase, updateDatabase } from "../src/database.js";
+
 const app = express();
 const port = 3000;
 
@@ -16,7 +13,7 @@ app.use((err, req, res, next) => {
 	if(err.status && err.message) res.status(err.status).send(err.message);
 	else res.status(500).send();
 });
-/* eslint-ensable no-unused-vars */
+/* eslint-enable no-unused-vars */
 
 openConnection(() => {
 	app.listen(port, async () => {

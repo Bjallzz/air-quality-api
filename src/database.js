@@ -1,19 +1,12 @@
 import mongodb from "mongodb";
-import {
-	fetchAllStations,
-	fetchStationMeasurements,
-	compensateTimeDifference,
-} from "./processing.js";
+import { fetchAllStations, fetchStationMeasurements, compensateTimeDifference } from "./processing.js";
 const url = "mongodb://localhost:27017";
 const databaseName = "weather-api-database";
 const collectionName = "stations";
 let db;
 
 const openConnection = (callback) => {
-	mongodb.MongoClient.connect(
-		url,
-		{ useNewUrlParser: true, useUnifiedTopology: true },
-		(err, client) => {
+	mongodb.MongoClient.connect(url, { useNewUrlParser: true, useUnifiedTopology: true }, (err, client) => {
 			if (err) return console.log(err);
 			db = client.db(databaseName);
 			console.log(`Connected MongoDB: ${url}`);
@@ -26,38 +19,10 @@ const openConnection = (callback) => {
 const setupDatabase = async () => {
 	console.log("Database setup started at " + new Date());
 
-	let stations = await fetchAllStations();
-	let query = [];
+	constructDatabaseStructure();
 
-	query = query.concat(constructDocumentCreationQuery(stations));
+	fillDatabaseWithInitialValues();
 
-	let result = await db.collection(collectionName).bulkWrite(query);
-
-	query = [];
-
-	let databaseStations = await db
-		.collection(collectionName)
-		.find(
-			{},
-			{
-				sensors: 1,
-			}
-		)
-		.toArray();
-
-	for (let station of databaseStations) {
-		let sensors = await fetchStationMeasurements(station.stationId);
-
-		let databaseSensors = station.sensors;
-
-		for (let sensor of sensors) {
-			query = query.concat(
-				constructSensorCreationQuery(sensor, station, databaseSensors)
-			);
-		}
-		logProgress(databaseStations.indexOf(station) + 1, databaseStations.length);
-	}
-	result = await db.collection(collectionName).bulkWrite(query);
 	console.log("\n");
 	console.log(result);
 	console.log("Database setup complete at " + new Date());
@@ -230,6 +195,52 @@ const constructSensorCreationQuery = (sensor, station, databaseSensors) => {
 const logProgress = (current, total) => {
 	process.stdout.write("Progress: " + "[" + current + "/" + total + "]" + "\r");
 };
+
+const constructDatabaseStructure = () => {
+	let stations = await fetchAllStations();
+	let query = [];
+
+	query = query.concat(constructDocumentCreationQuery(stations));
+
+	let result = await db.collection(collectionName).bulkWrite(query);
+
+	if(!result.acknowledged) {
+		console.log("Database bulkWrite failed during database structure construction at" + new Date());
+	}
+}
+
+const fillDatabaseWithInitialValues = () => {
+	let query = [];
+
+	let databaseStations = await db
+	.collection(collectionName)
+	.find(
+		{},
+		{
+			sensors: true,
+		}
+	)
+	.toArray();
+
+	for (let station of databaseStations) {
+		let sensors = await fetchStationMeasurements(station.stationId);
+
+		let databaseSensors = station.sensors;
+
+		for (let sensor of sensors) {
+			query = query.concat(
+				constructSensorCreationQuery(sensor, station, databaseSensors)
+			);
+		}
+		logProgress(databaseStations.indexOf(station) + 1, databaseStations.length);
+	}
+	let result = await db.collection(collectionName).bulkWrite(query);
+
+	if(!result.acknowledged) {
+		console.log("Database bulkWrite failed during filling the database with initial values at" + new Date());
+	}
+}
+
 
 export {
 	openConnection,
