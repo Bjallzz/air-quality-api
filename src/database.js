@@ -7,21 +7,24 @@ let db;
 
 const openConnection = (callback) => {
 	mongodb.MongoClient.connect(url, { useNewUrlParser: true, useUnifiedTopology: true }, (err, client) => {
-			if (err) return console.log(err);
-			db = client.db(databaseName);
-			console.log(`Connected MongoDB: ${url}`);
-			console.log(`Database: ${databaseName}`);
-			callback();
-		}
+		if (err) return console.log(err);
+		db = client.db(databaseName);
+		console.log(`Connected MongoDB: ${url}`);
+		console.log(`Database: ${databaseName}`);
+		callback();
+	}
 	);
 };
 
 const setupDatabase = async () => {
 	console.log("Database setup started at " + new Date());
 
-	constructDatabaseStructure();
-
-	fillDatabaseWithInitialValues();
+	try {
+		constructDatabaseStructure();
+		fillDatabaseWithInitialValues();
+	} catch (e) {
+		console.log(e.message);
+	}
 
 	console.log("\n");
 	console.log(result);
@@ -204,8 +207,8 @@ const constructDatabaseStructure = () => {
 
 	let result = await db.collection(collectionName).bulkWrite(query);
 
-	if(!result.acknowledged) {
-		console.log("Database bulkWrite failed during database structure construction at" + new Date());
+	if (!result.acknowledged) {
+		throw new Error("Database bulkWrite failed during database structure construction at" + new Date());
 	}
 }
 
@@ -213,15 +216,23 @@ const fillDatabaseWithInitialValues = () => {
 	let query = [];
 
 	let databaseStations = await db
-	.collection(collectionName)
-	.find(
-		{},
-		{
-			sensors: true,
-		}
-	)
-	.toArray();
+		.collection(collectionName)
+		.find(
+			{},
+			{
+				sensors: true,
+			}
+		)
+		.toArray();
 
+	let result = fillSensorsDataForEachStation(databaseStations);
+
+	if (!result.acknowledged) {
+		throw new Error("Database bulkWrite failed during filling the database with initial values at" + new Date());
+	}
+}
+
+const fillSensorsDataForEachStation = (databaseStations) => {
 	for (let station of databaseStations) {
 		let sensors = await fetchStationMeasurements(station.stationId);
 
@@ -234,11 +245,7 @@ const fillDatabaseWithInitialValues = () => {
 		}
 		logProgress(databaseStations.indexOf(station) + 1, databaseStations.length);
 	}
-	let result = await db.collection(collectionName).bulkWrite(query);
-
-	if(!result.acknowledged) {
-		console.log("Database bulkWrite failed during filling the database with initial values at" + new Date());
-	}
+	return await db.collection(collectionName).bulkWrite(query);;
 }
 
 
