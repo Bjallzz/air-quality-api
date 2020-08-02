@@ -25,10 +25,6 @@ const setupDatabase = async () => {
 	} catch (e) {
 		console.log(e.message);
 	}
-
-	console.log("\n");
-	console.log(result);
-	console.log("Database setup complete at " + new Date());
 };
 
 const updateDatabase = async () => {
@@ -199,22 +195,20 @@ const logProgress = (current, total) => {
 	process.stdout.write("Progress: " + "[" + current + "/" + total + "]" + "\r");
 };
 
-const constructDatabaseStructure = () => {
+const constructDatabaseStructure = async () => {
 	let stations = await fetchAllStations();
 	let query = [];
 
 	query = query.concat(constructDocumentCreationQuery(stations));
 
-	let result = await db.collection(collectionName).bulkWrite(query);
+	let bulkWriteResult = await db.collection(collectionName).bulkWrite(query);
 
-	if (!result.acknowledged) {
+	if (!bulkWriteResult.result.ok) {
 		throw new Error("Database bulkWrite failed during database structure construction at" + new Date());
 	}
 }
 
-const fillDatabaseWithInitialValues = () => {
-	let query = [];
-
+const fillDatabaseWithInitialValues = async () => {
 	let databaseStations = await db
 		.collection(collectionName)
 		.find(
@@ -225,14 +219,19 @@ const fillDatabaseWithInitialValues = () => {
 		)
 		.toArray();
 
-	let result = fillSensorsDataForEachStation(databaseStations);
+	let bulkWriteResult = await fillSensorsDataForEachStation(databaseStations);
 
-	if (!result.acknowledged) {
+	if (!bulkWriteResult.result.ok) {
 		throw new Error("Database bulkWrite failed during filling the database with initial values at" + new Date());
+	}
+	else {
+		console.log("\n");
+		console.log("Database setup complete at " + new Date());
 	}
 }
 
-const fillSensorsDataForEachStation = (databaseStations) => {
+const fillSensorsDataForEachStation = async (databaseStations) => {
+	let query = [];
 	for (let station of databaseStations) {
 		let sensors = await fetchStationMeasurements(station.stationId);
 
@@ -245,7 +244,7 @@ const fillSensorsDataForEachStation = (databaseStations) => {
 		}
 		logProgress(databaseStations.indexOf(station) + 1, databaseStations.length);
 	}
-	return await db.collection(collectionName).bulkWrite(query);;
+	return await db.collection(collectionName).bulkWrite(query);
 }
 
 

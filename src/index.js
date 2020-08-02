@@ -20,7 +20,6 @@ openConnection(() => {
 		await setupDatabase();
 		console.log(`Air condition API listening at http://localhost:${port}`);
 
-		//Update the database every hour
 		setInterval(updateDatabase, 1000 * 60 * 60);
 	});
 });

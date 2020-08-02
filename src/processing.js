@@ -61,7 +61,7 @@ const fetchStationMeasurements = async (id) => {
 
 const compensateTimeDifference = (uncompensatedDate) => {
 	let correctDate = new Date(uncompensatedDate);
-	correctDate.setTime(date.getTime() - new Date().getTimezoneOffset() * 60 * 1000);
+	correctDate.setTime(correctDate.getTime() - new Date().getTimezoneOffset() * 60 * 1000);
 	return correctDate;
 }
 
