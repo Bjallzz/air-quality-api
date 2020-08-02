@@ -1,6 +1,6 @@
 Prerequisites:
--Machine with Windows
--Node.js
+-Machine with Windows 10
+-Latest Node.js version
 -MongoDB
 
 Instructions:
