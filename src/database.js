@@ -81,7 +81,7 @@ const updateDatabase = async () => {
 const findAverageMeasurementForDay = async (stationId, day, database) => {
 	day = compensateTimeDifference(day);
 	day.setUTCHours(0, 0, 0, 0);
-	let nextDay = new Date();
+	let nextDay = new Date(day);
 	nextDay.setUTCHours(0, 0, 0, 0);
 	nextDay.setDate(day.getDate() + 1);
 	nextDay.setUTCHours(0, 0, 0, 0);
