@@ -1,6 +1,6 @@
 import mongodb from "mongodb";
 import { fetchAllStations, fetchStationMeasurements, compensateTimeDifference } from "./processing.js";
-import { query } from "express";
+
 const url = "mongodb://localhost:27017";
 const databaseName = "weather-api-database";
 const collectionName = "stations";
@@ -76,7 +76,7 @@ const findAverageMeasurementFromTo = async (stationId, from, to, database) => {
 	from.setUTCHours(0, 0, 0, 0);
 	to = compensateTimeDifference(to);
 	to.setUTCHours(0, 0, 0, 0);
-	
+
 	return database
 		.collection(collectionName)
 		.aggregate([
