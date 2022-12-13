@@ -23,7 +23,7 @@
     "mongo-mock": "^4.0.0"
   },
   "dependencies": {
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "mongodb": "^3.6.0",
     "node-fetch": "^2.6.0"
   }
